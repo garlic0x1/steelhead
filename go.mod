@@ -1,4 +1,4 @@
-module steelhead
+module github.com/garlic0x1/steelhead
 
 go 1.21.1
 
