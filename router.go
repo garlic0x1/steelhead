@@ -9,6 +9,7 @@ import (
 )
 
 var Errors = make(chan Error)
+var Debug = false
 
 func ErrorHandler(f func(Error)) {
 	go func() {
