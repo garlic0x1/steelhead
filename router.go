@@ -8,6 +8,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var Errors = make(chan Error)
+
+func ErrorHandler(f func(Error)) {
+	go func() {
+		for err := range Errors {
+			f(err)
+		}
+	}()
+}
+
 func chain(f Handler, tower ...Middleware) http.HandlerFunc {
 	for _, middleware := range tower {
 		f = middleware(f)
@@ -15,6 +25,7 @@ func chain(f Handler, tower ...Middleware) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, b, e := f(r)
+		if e != nil { Errors <- Error{e, r} }
 		handleResponse(w, s, b, e)
 	};
 }
@@ -97,14 +108,14 @@ func WrapLeaf(middlewares []Middleware, vargs ...any) Router {
 
 func BuildRouter(tree Router) *mux.Router {
 	r := mux.NewRouter()
-	var recur func(middlewares []Middleware, path string, tree Router)
-	recur = func(middlewares []Middleware, path string, tree Router) {
+	var recur func(router *mux.Router, middlewares []Middleware, path string, tree Router)
+	recur = func(router *mux.Router, middlewares []Middleware, path string, tree Router) {
 		for _, mw := range tree.Middlewares {
 			middlewares = append(middlewares, mw)
 		}
 
 		for k, c := range tree.Children {
-			recur(middlewares, fmt.Sprintf("%s%s", path, k), c)
+			recur(router, middlewares, fmt.Sprintf("%s%s", path, k), c)
 		}
 
 		// cringe
@@ -113,9 +124,9 @@ func BuildRouter(tree Router) *mux.Router {
 		}
 
 		for k, h := range tree.Handlers {
-			r.HandleFunc(path, chain(h, middlewares...)).Methods(k)
+			router.HandleFunc(path, chain(h, middlewares...)).Methods(k)
 		}
 	}
-	recur(Middlewares(), "", tree)
+	recur(r, Middlewares(), "", tree)
 	return r
 }

@@ -5,6 +5,11 @@ import "net/http"
 type Handler func(*http.Request) (int, any, error)
 type Middleware func(Handler) Handler
 
+type Error struct {
+	Error error
+	Request *http.Request
+}
+
 type PageQuery struct {
 	Offset int `json:"offset"`
 	Limit  int `json:"limit"`
