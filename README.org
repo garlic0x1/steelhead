@@ -8,6 +8,10 @@ go get github.com/garlic0x1/steelhead@latest
 #+end_src
 * Examples
 #+begin_src go
+import (
+	. "github.com/garlic0x1/steelhead"
+)
+
 var router = Node(
 	"/ping", Leaf(
 		"GET", Handler(func(r *http.Request) (int, any, error) {
@@ -21,8 +25,13 @@ var router = Node(
 	),
 )
 
+Debug = true // Error info in HTTP responses (dont use in prod)
+
+// attach a handler to the error channel
+ErrorHandler(func(err Error) { log.Println(err) })
+
 http.ListenAndServe(
-	fmt.Sprintf(":%d", Cfg.Frontend.Port),
+	fmt.Sprintf(":%d", 8000),
 	BuildRouter(router),
 )
 #+end_src
