@@ -1,15 +1,22 @@
 package steelhead
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"bytes"
+	"io"
 	"net/http"
 	"strconv"
-	"io/ioutil"
 
 	"github.com/jmoiron/sqlx"
 )
+
+// Build a standard net/http handler, middlewares still apply
+func RawHandler(handler func(http.ResponseWriter, *http.Request)) Handler {
+	return Handler(func(r *http.Request) (int, any, error) {
+		return 200, func(w http.ResponseWriter) { handler(w, r) }, nil
+	})
+}
 
 func DbToJson(rows *sqlx.Rows) []map[string]interface{} {
 	count := 0
@@ -98,6 +105,8 @@ func ExtractPaging(r *http.Request) (PageQuery, error) {
 	}, nil
 }
 
+// Return type magic, basically try to JSONify stuff
+
 func handleResponse(w http.ResponseWriter, status int, body any, err error) {
 	// for shorthand returning errs
 	if err != nil && status == 200 {
@@ -117,40 +126,44 @@ func handleResponse(w http.ResponseWriter, status int, body any, err error) {
 		return
 	}
 
-	// handle returning sqlx data
-	page, ok := body.(Page)
-	if ok {
-		rows, ok := page.Data.(*sqlx.Rows)
-		if ok {
-			page.Data = DbToJson(rows)
-			body = page
-		}
-	}
+	switch res := body.(type) {
 
-	rows, ok := body.(*sqlx.Rows)
-	if ok {
-		body = DbToJson(rows)
-	}
+	// return lambda for low level handlers
+	case func(http.ResponseWriter):
+		res(w)
 
-	row, ok := body.(*sqlx.Row)
-	if ok {
+	// return paginated JSON
+	case Page:
+		rows, _ := res.Data.(*sqlx.Rows)
+		res.Data = DbToJson(rows)
+		json.NewEncoder(w).Encode(res)
+
+	// return sqlx types
+	case *sqlx.Rows:
+		json.NewEncoder(w).Encode(DbToJson(res))
+	case *sqlx.Row:
 		var temp map[string]any
-		row.MapScan(temp)
-		body = temp
-	}
+		res.MapScan(temp)
+		json.NewEncoder(w).Encode(temp)
 
-	json.NewEncoder(w).Encode(body)
+	// default to JSON encode
+	default:
+		json.NewEncoder(w).Encode(res)
+	}
 }
 
+// Helper functions for requests
+
+// Get the body as a string
 func DumpBody(r *http.Request) string {
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := io.ReadAll(r.Body)
 	r.Body.Close()
-	r.Body = ioutil.NopCloser(bytes.NewReader(body))
+	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	return string(body)
 }
 
-func DumpRequest(r *http.Request) string {
+func DumpRequestInfo(r *http.Request) string {
 	method := r.Method
 	url := r.URL.String()
 	protocol := r.Proto

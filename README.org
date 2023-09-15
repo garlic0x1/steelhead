@@ -1,0 +1,109 @@
+#+title: Readme
+
+An HTTP router for Go APIs
+
+* Installation
+#+begin_src bash
+go get github.com/garlic0x1/steelhead@latest
+#+end_src
+* Examples
+#+begin_src go
+var router = Node(
+	"/ping", Leaf(
+		"GET", Handler(func(r *http.Request) (int, any, error) {
+			200, "pong", nil
+		}),
+	),
+	"/pong", Leaf(
+		"GET", RawHandler(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "ping")
+		}),
+	),
+)
+
+http.ListenAndServe(
+	fmt.Sprintf(":%d", Cfg.Frontend.Port),
+	BuildRouter(router),
+)
+#+end_src
+
+* Routing
+A router is a recursive structure that has an array of middlewares, a map of HTTP methods to handler functions, and a map of URL segments to child routers
+#+begin_src go
+type Router struct {
+	Middlewares []Middleware
+	Handlers    map[string]Handler
+	Children    map[string]Router
+}
+#+end_src
+
+Since the syntax for declaring routes like this is kind of clunky, variadic functions are provided to construct a tree on evaluation
+
+#+begin_src go
+WrapNode(
+	Middlewares(loggingMiddleware),
+	"/route", Leaf(
+		"GET", Handler(GetRoute),
+		"POST", RawHandler(PostRoute),
+	),
+)
+#+end_src
+
+The above code evaluates to the following structure
+
+#+begin_src go
+Router{
+	Middlewares: []Middleware{loggingMiddleware},
+	Handlers: map[string]Handler{},
+	Children: map[string]Router{
+		"route": Router{
+			Middlewares: []Middleware{},
+			Handlers: map[string]Handler{
+				"GET":  Handler(GetRoute),
+				"POST": RawHandler(PostRoute),
+			},
+			Children: map[string]Router{},
+		},
+	},
+}
+#+end_src
+
+You can look through the public functions in `router.go` to see all the configurations
+* Handlers
+As seen in previous examples, you can use the default net/http handler type, or a higher level type that tries to coerce data to JSON:
+#+begin_src go
+// net/http style
+func(http.ResponseWriter, *http.Request)
+// steelhead handler
+func(*http.Request) (int, any, error)
+#+end_src
+
+The higher level steelhead handler returns a status code, response data, and an error
+
+If a handler returns a non-nil error, the error info will be returned if steelhead.Debug parameter is true, but for security reasons a generic message is shown by default, you can also set a custom error handler for logging:
+
+#+begin_src go
+// set the global steelhead error handler
+ErrorHandler(func(err Error) {
+	log.Println(err)
+})
+#+end_src
+
+The response data will be serialized into JSON if possible, there are special cases for sqlx.Row and sqlx.Rows structures as well as the built in pagination structures
+
+* Middleware
+A middleware is just a function that wraps a handler, you can have as many as you want.
+
+In this example, if the client does not provide "secret-key" as the Authorization header, he is served a 403 and the endpoint is not evaluated.
+#+begin_src go
+func AuthMw(f Handler) Handler {
+	return Handler(func(r *http.Request) (int, any, error) {
+		if r.Header.Get("Authorization") == "secret-key" {
+			return f(r)
+		}
+		return 403, "Unauthorized", nil
+	})
+}
+#+end_src
+
+As with any Go framework working with the http.Request object, middlewares can modify the request context to provide data for the handlers, such as the authenticated username and relevant info from the database.
