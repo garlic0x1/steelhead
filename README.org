@@ -15,7 +15,7 @@ import (
 var router = Node(
 	"/ping", Leaf(
 		"GET", Handler(func(r *http.Request) (int, any, error) {
-			200, "pong", nil
+			return 200, "pong", nil
 		}),
 	),
 	"/pong", Leaf(
