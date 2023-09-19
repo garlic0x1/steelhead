@@ -12,13 +12,15 @@ Steelhead is a "micro framework" for making web APIs in Go.  It provides a tree 
 go get github.com/garlic0x1/steelhead@latest
 #+end_src
 ** Future additions
-the todo list...
 - Support Gin handlers
 - Remove mux dependency
+
   I'm told this is outdated
 - Lexically scope the global parameters (Debug and ErrorHandler)
+
   At the moment you cant have different parameters for different routers
 - Add a mechanism for custom type coersion for steelhead handler functions
+
   Should also be lexically scoped, something like a map of {T -> CoerceFn}
 * Examples
 #+begin_src go
