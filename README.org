@@ -2,10 +2,23 @@
 
 An HTTP router for Go APIs
 
-* Installation
+* Overview
+Steelhead is a "micro framework" for making web APIs in Go.  It provides a tree router and gives you the choice to use a higher level HTTP handler which is very convenient for JSON responses
+** Purpose
+- Declaring routes with the functions provided by mux is way too verbose and quite difficult to visually navigate.  I much prefer a tree router like [[https://github.com/metosin/reitit][Reitit]], it is especially easier when you have different groups of endpoints requiring different sets of middleware
+- Returning a value that is coerced into a JSON response is a more readable pattern for HTTP handlers and provides simpler mechanisms for error handling
+** Installation
 #+begin_src bash
 go get github.com/garlic0x1/steelhead@latest
 #+end_src
+** TODO
+- Support Gin handlers
+- Remove mux dependency
+  I'm told this is outdated
+- Lexically scope the global parameters (Debug and ErrorHandler)
+  At the moment you cant have different parameters for different routers
+- Add a mechanism for custom type coersion for steelhead handler functions
+  Should also be lexically scoped, something like a map of {T -> CoerceFn}
 * Examples
 #+begin_src go
 import (
