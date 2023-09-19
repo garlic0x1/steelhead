@@ -11,7 +11,8 @@ Steelhead is a "micro framework" for making web APIs in Go.  It provides a tree 
 #+begin_src bash
 go get github.com/garlic0x1/steelhead@latest
 #+end_src
-** TODO
+** Future additions
+the todo list...
 - Support Gin handlers
 - Remove mux dependency
   I'm told this is outdated
